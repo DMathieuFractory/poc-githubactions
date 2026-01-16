@@ -4,10 +4,8 @@ on:
   push:
     branches:
       - feat/project_vue
-
   schedule:
     - cron: '0 6 * * 1'
-
   workflow_dispatch:
 
 jobs:
@@ -15,27 +13,51 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repo
       - uses: actions/checkout@v4
 
+      # 2️⃣ Setup Node.js
       - uses: actions/setup-node@v4
         with:
           node-version: 20
 
+      # 3️⃣ Check dependencies in root
       - name: Check dependencies (root)
+        id: check_root
         run: |
           npm install
-          npm outdated || true
+          npm outdated --json > outdated_root.json || true
+          # Détecte les MAJOR
+          if jq -e 'to_entries[] | select(.value.type=="major")' outdated_root.json > /dev/null; then
+            echo "has_major=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_major=false" >> $GITHUB_OUTPUT
+          fi
 
+      # 4️⃣ Check dependencies in ./app
       - name: Check dependencies (app)
+        id: check_app
         working-directory: ./app
         run: |
           npm install
-          npm outdated || true
+          npm outdated --json > outdated_app.json || true
+          if jq -e 'to_entries[] | select(.value.type=="major")' outdated_app.json > /dev/null; then
+            echo "has_major=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_major=false" >> $GITHUB_OUTPUT
+          fi
 
+      # 5️⃣ Warning dans Actions si MAJOR détectée
+      - name: Warn about major updates
+        if: steps.check_root.outputs.has_major == 'true' || steps.check_app.outputs.has_major == 'true'
+        run: |
+          echo "::warning::🚨 Major dependency updates detected! Check GitHub issues."
+
+      # 6️⃣ Create GitHub issue if MAJOR detected
       - name: Create issue if major update
+        if: steps.check_root.outputs.has_major == 'true' || steps.check_app.outputs.has_major == 'true'
         uses: peter-evans/create-issue-from-file@v6
         with:
           title: "🚨 Major dependency update detected"
-          content-filepath: outdated.json
+          content-filepath: outdated_root.json
           labels: dependencies
-        if: steps.check-deps.outputs.has_major == 'true'
