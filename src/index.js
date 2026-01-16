@@ -1,1 +1,0 @@
-console.log("Projet GitHub Actions minimal");

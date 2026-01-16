@@ -1,12 +1,12 @@
-name: CI
+name: Dependency Update Check
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
+  schedule:
+    - cron: '0 6 * * 1' # Tous les lundis matin
+  workflow_dispatch:
 
 jobs:
-  ci:
+  check-deps:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,8 +19,5 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Type check
-        run: npm run type-check --if-present
-
-      - name: Build project
-        run: npm run build
+      - name: Check outdated dependencies
+        run: npm outdated || true
