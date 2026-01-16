@@ -1,0 +1,13 @@
+{
+  "name": "projet-vierge",
+  "version": "1.0.0",
+  "description": "Projet minimal pour tester GitHub Actions",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"No tests yet\" && exit 0",
+    "lint": "echo \"No lint yet\" && exit 0",
+    "build": "echo \"No build yet\" && exit 0"
+  },
+  "author": "Votre Nom",
+  "license": "MIT"
+}
