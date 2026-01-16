@@ -31,9 +31,11 @@ jobs:
         run: |
           npm install
           npm outdated --json > outdated_root.json || true
-          
+
           has_major=false
-          jq -r 'to_entries[] | "\(.key) \(.value.current) \(.value.latest)"' outdated_root.json | while read pkg cur lat; do
+          for pkg in $(jq -r 'keys[]' outdated_root.json); do
+            cur=$(jq -r ".\"$pkg\".current" outdated_root.json)
+            lat=$(jq -r ".\"$pkg\".latest" outdated_root.json)
             cur_major=$(echo $cur | cut -d. -f1 | tr -d '[:alpha:]')
             lat_major=$(echo $lat | cut -d. -f1 | tr -d '[:alpha:]')
             if [[ "$cur_major" != "$lat_major" ]]; then
@@ -50,9 +52,11 @@ jobs:
         run: |
           npm install
           npm outdated --json > outdated_app.json || true
-          
+
           has_major=false
-          jq -r 'to_entries[] | "\(.key) \(.value.current) \(.value.latest)"' outdated_app.json | while read pkg cur lat; do
+          for pkg in $(jq -r 'keys[]' outdated_app.json); do
+            cur=$(jq -r ".\"$pkg\".current" outdated_app.json)
+            lat=$(jq -r ".\"$pkg\".latest" outdated_app.json)
             cur_major=$(echo $cur | cut -d. -f1 | tr -d '[:alpha:]')
             lat_major=$(echo $lat | cut -d. -f1 | tr -d '[:alpha:]')
             if [[ "$cur_major" != "$lat_major" ]]; then
@@ -62,23 +66,34 @@ jobs:
           done
           echo "has_major=$has_major" >> $GITHUB_OUTPUT
 
-      # 5️⃣ Warning dans Actions si MAJOR détectée
-      - name: Warn about major updates
-        if: steps.check_root.outputs.has_major == 'true' || steps.check_app.outputs.has_major == 'true'
-        run: |
-          echo "::warning::🚨 Major dependency updates detected! Check GitHub issues."
-
-      # 6️⃣ Combine root + app outdated JSON
+      # 5️⃣ Combine root + app JSON pour l’issue
       - name: Combine outdated JSON
         if: steps.check_root.outputs.has_major == 'true' || steps.check_app.outputs.has_major == 'true'
         run: |
           jq -s 'add' outdated_root.json outdated_app.json > combined_outdated.json
 
-      # 7️⃣ Create GitHub issue if MAJOR detected
+      # 6️⃣ Create GitHub issue
       - name: Create issue if major update
         if: steps.check_root.outputs.has_major == 'true' || steps.check_app.outputs.has_major == 'true'
         uses: peter-evans/create-issue-from-file@v6
         with:
-          title: "🚨 Major dependency update detected"
+          title: "🚨 Major dependency updates detected"
           content-filepath: combined_outdated.json
           labels: dependencies
+
+      # 7️⃣ Notify team by email
+      - name: Notify team via email
+        if: steps.check_root.outputs.has_major == 'true' || steps.check_app.outputs.has_major == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.example.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USER }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "🚨 Major dependency updates detected"
+          to: "team@example.com"
+          from: "github-actions@example.com"
+          body: |
+            Major dependency updates were detected in the project.
+
+            Please check the GitHub issue: ${{ github.server_url }}/${{ github.repository }}/issues
