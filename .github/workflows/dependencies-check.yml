@@ -68,12 +68,15 @@ jobs:
         run: |
           echo "::warning::🚨 Major dependency updates detected! Check GitHub issues."
 
-      # 6️⃣ Create GitHub issue if MAJOR detected
-      - name: Create issue if major update
+      # 6️⃣ Combine root + app outdated JSON
+      - name: Combine outdated JSON
         if: steps.check_root.outputs.has_major == 'true' || steps.check_app.outputs.has_major == 'true'
         run: |
-          # Combine root + app outdated JSON pour la création d'issue
           jq -s 'add' outdated_root.json outdated_app.json > combined_outdated.json
+
+      # 7️⃣ Create GitHub issue if MAJOR detected
+      - name: Create issue if major update
+        if: steps.check_root.outputs.has_major == 'true' || steps.check_app.outputs.has_major == 'true'
         uses: peter-evans/create-issue-from-file@v6
         with:
           title: "🚨 Major dependency update detected"
