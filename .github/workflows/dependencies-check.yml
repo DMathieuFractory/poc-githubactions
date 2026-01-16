@@ -27,12 +27,15 @@ jobs:
         run: |
           npm install
           npm outdated --json > outdated_root.json || true
-          # Détecte les MAJOR
-          if jq -e 'to_entries[] | select(.value.type=="major")' outdated_root.json > /dev/null; then
-            echo "has_major=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_major=false" >> $GITHUB_OUTPUT
-          fi
+          echo "has_major=false" >> $GITHUB_OUTPUT
+          jq -r 'to_entries[] | "\(.key) \(.value.current) \(.value.latest)"' outdated_root.json | while read pkg cur lat; do
+            cur_major=$(echo $cur | cut -d. -f1 | tr -d '[:alpha:]')
+            lat_major=$(echo $lat | cut -d. -f1 | tr -d '[:alpha:]')
+            if [[ "$cur_major" != "$lat_major" ]]; then
+              echo "MAJOR update found in root: $pkg ($cur → $lat)"
+              echo "has_major=true" >> $GITHUB_OUTPUT
+            fi
+          done
 
       # 4️⃣ Check dependencies in ./app
       - name: Check dependencies (app)
@@ -41,11 +44,15 @@ jobs:
         run: |
           npm install
           npm outdated --json > outdated_app.json || true
-          if jq -e 'to_entries[] | select(.value.type=="major")' outdated_app.json > /dev/null; then
-            echo "has_major=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_major=false" >> $GITHUB_OUTPUT
-          fi
+          echo "has_major=false" >> $GITHUB_OUTPUT
+          jq -r 'to_entries[] | "\(.key) \(.value.current) \(.value.latest)"' outdated_app.json | while read pkg cur lat; do
+            cur_major=$(echo $cur | cut -d. -f1 | tr -d '[:alpha:]')
+            lat_major=$(echo $lat | cut -d. -f1 | tr -d '[:alpha:]')
+            if [[ "$cur_major" != "$lat_major" ]]; then
+              echo "MAJOR update found in app: $pkg ($cur → $lat)"
+              echo "has_major=true" >> $GITHUB_OUTPUT
+            fi
+          done
 
       # 5️⃣ Warning dans Actions si MAJOR détectée
       - name: Warn about major updates
