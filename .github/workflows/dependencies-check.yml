@@ -8,6 +8,10 @@ on:
     - cron: '0 6 * * 1'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  issues: write
+
 jobs:
   check-deps:
     runs-on: ubuntu-latest
@@ -27,15 +31,17 @@ jobs:
         run: |
           npm install
           npm outdated --json > outdated_root.json || true
-          echo "has_major=false" >> $GITHUB_OUTPUT
+          
+          has_major=false
           jq -r 'to_entries[] | "\(.key) \(.value.current) \(.value.latest)"' outdated_root.json | while read pkg cur lat; do
             cur_major=$(echo $cur | cut -d. -f1 | tr -d '[:alpha:]')
             lat_major=$(echo $lat | cut -d. -f1 | tr -d '[:alpha:]')
             if [[ "$cur_major" != "$lat_major" ]]; then
               echo "MAJOR update found in root: $pkg ($cur → $lat)"
-              echo "has_major=true" >> $GITHUB_OUTPUT
+              has_major=true
             fi
           done
+          echo "has_major=$has_major" >> $GITHUB_OUTPUT
 
       # 4️⃣ Check dependencies in ./app
       - name: Check dependencies (app)
@@ -44,15 +50,17 @@ jobs:
         run: |
           npm install
           npm outdated --json > outdated_app.json || true
-          echo "has_major=false" >> $GITHUB_OUTPUT
+          
+          has_major=false
           jq -r 'to_entries[] | "\(.key) \(.value.current) \(.value.latest)"' outdated_app.json | while read pkg cur lat; do
             cur_major=$(echo $cur | cut -d. -f1 | tr -d '[:alpha:]')
             lat_major=$(echo $lat | cut -d. -f1 | tr -d '[:alpha:]')
             if [[ "$cur_major" != "$lat_major" ]]; then
               echo "MAJOR update found in app: $pkg ($cur → $lat)"
-              echo "has_major=true" >> $GITHUB_OUTPUT
+              has_major=true
             fi
           done
+          echo "has_major=$has_major" >> $GITHUB_OUTPUT
 
       # 5️⃣ Warning dans Actions si MAJOR détectée
       - name: Warn about major updates
@@ -63,8 +71,11 @@ jobs:
       # 6️⃣ Create GitHub issue if MAJOR detected
       - name: Create issue if major update
         if: steps.check_root.outputs.has_major == 'true' || steps.check_app.outputs.has_major == 'true'
+        run: |
+          # Combine root + app outdated JSON pour la création d'issue
+          jq -s 'add' outdated_root.json outdated_app.json > combined_outdated.json
         uses: peter-evans/create-issue-from-file@v6
         with:
           title: "🚨 Major dependency update detected"
-          content-filepath: outdated_root.json
+          content-filepath: combined_outdated.json
           labels: dependencies
