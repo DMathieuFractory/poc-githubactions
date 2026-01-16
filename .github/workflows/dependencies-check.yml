@@ -31,3 +31,11 @@ jobs:
         run: |
           npm install
           npm outdated || true
+
+      - name: Create issue if major update
+        uses: peter-evans/create-issue-from-file@v6
+        with:
+          title: "🚨 Major dependency update detected"
+          content-filepath: outdated.json
+          labels: dependencies
+        if: steps.check-deps.outputs.has_major == 'true'
