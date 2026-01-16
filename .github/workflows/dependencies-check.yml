@@ -1,8 +1,13 @@
 name: Dependency Update Check
 
 on:
+  push:
+    branches:
+      - feat/project_vue
+
   schedule:
-    - cron: '0 6 * * 1' # Tous les lundis matin
+    - cron: '0 6 * * 1'
+
   workflow_dispatch:
 
 jobs:
